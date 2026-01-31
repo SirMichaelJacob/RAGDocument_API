@@ -198,6 +198,4 @@ Feel free to use, modify, and contribute!
 
 Pull requests, bug reports, and feature suggestions are welcome!
 
-```md`.
-
-Let me know if you'd like to add badges, GitHub Actions status, screenshots, a demo video link, or anything else!
+```md`
