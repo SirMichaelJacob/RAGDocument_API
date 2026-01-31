@@ -77,7 +77,7 @@ copy appsettings.example.json appsettings.json
     "RAGDbConn": "Server=localhost;Database=RAGDocumentDB;Trusted_Connection=True;TrustServerCertificate=True;"
   },
   "LLMS": {
-    "EndPointUrl": "http://localhost:1234/v1",
+    "EndPointUrl": "http://localhost:1234",
     "LLMModel": "qwen2.5-14b-instruct",
     "EmbeddingModel": "nomic-embed-text-v1.5",
     "MaxRetries": 3,
