@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+	  <PackageReference Include="Mapster" Version="7.4.0" />
+	  <PackageReference Include="Mapster.DependencyInjection" Version="1.0.1" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.2" />
+    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="10.1.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.1.0" />
+    <PackageReference Include="WolverineFx" Version="5.13.0" />
+    <PackageReference Include="WolverineFx.EntityFrameworkCore" Version="5.13.0" />
+    <PackageReference Include="WolverineFx.FluentValidation" Version="5.13.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RAGDocument.Application\RAGDocument.Application.csproj" />
+    <ProjectReference Include="..\RAGDocument.Infrastructure\RAGDocument.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>
