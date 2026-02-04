@@ -7,13 +7,13 @@ using RAGDocument.Infrastructure.Services;
 using RAGDocument.Domain.Interfaces;
 using RAGDocument.Infrastructure.Persistence;
 using RAGDocument.Infrastructure.Repositories;
-using RAGDocument.Infrastructure.Services;
 using System;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.FluentValidation;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddMemoryCache();
 
 // Add services to the container.
 builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("RAGDbConn")));
