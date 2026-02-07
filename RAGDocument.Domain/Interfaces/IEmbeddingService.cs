@@ -17,5 +17,6 @@ namespace RAGDocument.Application.Interfaces
     public interface IRagService
     {
         Task<string> QueryAsync(string question, CancellationToken ct = default);
+        Task RefreshIndexAsync();
     }
 }

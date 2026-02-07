@@ -54,5 +54,14 @@ namespace RAGDocument.Application.Utilities
                 return BitConverter.ToString(hashBytes).Replace("-", "");
             }
         }
+
+        public static float[] Normalize(float[] vector)
+        {
+            float norm = (float)Math.Sqrt(vector.Sum(x => x * x));
+            if (norm == 0) return vector; // Avoid divide-by-zero
+            for (int i = 0; i < vector.Length; i++)
+                vector[i] /= norm;
+            return vector;
+        }
     }
 }

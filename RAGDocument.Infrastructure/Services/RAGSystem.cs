@@ -4,6 +4,7 @@ using RAGDocument.Application.DTOs;
 using RAGDocument.Application.Interfaces;
 using RAGDocument.Application.Utilities;
 using RAGDocument.Domain.Interfaces;
+using FaissNet;
 
 namespace RAGDocument.Infrastructure.Services
 {
@@ -16,6 +17,10 @@ namespace RAGDocument.Infrastructure.Services
         private readonly LlmSettings _settings;
         private int _topK;
 
+        // FAISS index fields
+        private FaissNet.Index _index;  // FAISS index
+        private List<Guid> _idMap = new List<Guid>();  // Maps FAISS internal ID (sequential long) to document Guid
+
         public RAGSystem(IUnitOfWork unitOfWork, EmbeddingService embeddingService, LMStudioService llmClient, IOptions<LlmSettings> settings, IMemoryCache cache)
         {
             _embeddingService = embeddingService;
@@ -24,21 +29,21 @@ namespace RAGDocument.Infrastructure.Services
             _settings = settings.Value;
             _topK = _settings.TopK;
             _cache = cache;
+
+            // Build FAISS index on startup
+            InitializeIndexAsync().GetAwaiter().GetResult();  // Sync for simplicity; make async if needed
         }
 
 
         public async Task<string> QueryAsync(string question, CancellationToken ct = default)
         {
+            string cacheKey = $"answer:{question.ToLower().Trim()}";
 
-            string cacheKey = $"answer:{question.ToLower().Trim()}"; // Cache key
-
-            if (_cache.TryGetValue(cacheKey, out string cachedAnswer)) // Check cache
+            if (_cache.TryGetValue(cacheKey, out string cachedAnswer))
                 return cachedAnswer;
 
-            // Get embedding for the question
             float[] questionEmbedding = await GetOrCacheEmbedding(question);
 
-            // Retrieve relevant documents
             List<string> relevantDocs = await GetOrCacheSearch(question, questionEmbedding);
 
             if (relevantDocs.Count == 0)
@@ -46,49 +51,36 @@ namespace RAGDocument.Infrastructure.Services
                 return "I couldn't find any relevant information to answer your question.";
             }
 
-            // Build context from retrieved documents
-            string context = string.Join(
-                "\n\n",
-                relevantDocs.Select((doc, i) => $"Document {i + 1}: {doc}")
-            );
+            string context = string.Join("\n\n", relevantDocs.Select((doc, i) => $"Document {i + 1}: {doc}"));
 
-            // Generate answer using LLM
-            string prompt =
-                $@"Based on the following information, please answer the question. Context:{context} Question: {question} Answer:";
+            string prompt = $@"Based on the following information, please answer the question. Context:{context} Question: {question} Answer:";
 
             string answer = await _llmClient.GenerateAsync(prompt);
 
-            _cache.Set(cacheKey, answer, TimeSpan.FromMinutes(30)); // Cache for 30 minutes
+            _cache.Set(cacheKey, answer, TimeSpan.FromMinutes(30));
 
             return answer;
         }
 
         private async Task<List<string>> SearchSimilarDocumentsAsync(float[] queryEmbedding, int topK)
         {
-            var vectors = await _unitOfWork.Document.GetDocumentEmbeddingsAsync();
+            if (_index == null || _idMap.Count == 0)
+                return new List<string>();
 
-            var scored = new List<(Guid id, double score)>();
+            // Normalize query for cosine
+            float[] normalizedQuery = Utility.Normalize(queryEmbedding);
 
-            foreach (var v in vectors)
-            {
-                float[] docVector = Utility.ConvertBytesToFloatArray(v.Embedding);
+            // Search: FAISS returns distances (similarities for IP) and IDs
+            var (distances, ids) = _index.Search(new float[][] { normalizedQuery }, topK);
 
-                if (docVector.Length != queryEmbedding.Length)
-                    continue;
+            // For METRIC_INNER_PRODUCT, higher distance = better similarity; already sorted descending
+            var topInternalIds = ids[0].Take(topK);  // ids[0] for single query
 
-                double similarity = Utility.CosineSimilarity(queryEmbedding, docVector);
-                scored.Add((v.Id, similarity));
-            }
+            // Map back to Guids
+            var topGuids = topInternalIds.Select(internalId => _idMap[(int)internalId]).ToList();  // Cast long to int (safe for <2^31 docs)
 
-            var topIds = scored
-                .OrderByDescending(x => x.score)
-                .Take(topK)
-                .Select(x => x.id)
-                .ToList();
-
-            return await _unitOfWork.Document.GetContentsByIdsAsync(topIds);
+            return await _unitOfWork.Document.GetContentsByIdsAsync(topGuids);
         }
-
         private async Task<float[]> GetOrCacheEmbedding(string text)
         {
             string key = $"embed:{text.GetHashCode()}";
@@ -117,6 +109,37 @@ namespace RAGDocument.Infrastructure.Services
             return docs;
         }
 
+        private async Task InitializeIndexAsync()
+        {
+            var docEmbeddings = await _unitOfWork.Document.GetDocumentEmbeddingsAsync();
+            if (!docEmbeddings.Any()) return;
 
+            _idMap = docEmbeddings.Select(v => v.Id).ToList();
+
+            // Normalize embeddings for cosine similarity
+            var embeddingList = docEmbeddings
+                .Select(v => Utility.Normalize(Utility.ConvertBytesToFloatArray(v.Embedding)))
+                .ToArray();  // float[][] for FAISS
+
+            int dimension = embeddingList[0].Length;  // Assume all same dim
+
+            // Create FAISS index for cosine (inner product on normalized vectors)
+            _index = FaissNet.Index.CreateDefault(dimension, MetricType.METRIC_INNER_PRODUCT);
+
+            // Assign sequential IDs (0 to n-1 as long[])
+            long[] ids = Enumerable.Range(0, embeddingList.Length).Select(i => (long)i).ToArray();
+
+            // Add to index
+            _index.AddWithIds(embeddingList, ids);
+        }
+
+        // Refresh index after new documents (rebuild for simplicity)
+        public async Task RefreshIndexAsync()
+        {
+            _index?.Dispose();  // Clean up old
+            _index = null;
+            _idMap.Clear();
+            await InitializeIndexAsync();
+        }
     }
 }

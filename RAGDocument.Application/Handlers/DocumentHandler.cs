@@ -53,6 +53,8 @@ namespace RAGDocument.Application.Handlers
             //Add Embeddings and ContentHash logic
             await _unitOfWork.Document.AddAsync(document);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+            
+            await _ragService.RefreshIndexAsync();  // Rebuilds FAISS index
 
             return new CustomResult
             {
