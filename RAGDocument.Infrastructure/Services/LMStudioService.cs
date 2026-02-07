@@ -29,11 +29,28 @@ namespace RAGDocument.Infrastructure.Services
             {
                 messages = new[]
                 {
+                    new { role = "system", content = """
+                    You are a retrieval-augmented assistant.
+
+                    Use ONLY the information in the provided context documents.
+                    Do not use prior knowledge.
+                    Provide short, direct, factual answers.
+
+                    When answering:
+                    • Always mention the Title of the document you used (e.g., "The Rise of the Jedis").
+                    • If multiple documents are used, list all document titles.
+
+                    If the answer is not explicitly present in the context, you MUST respond exactly with:
+                    "The provided context does not contain enough information. Can I help you with something else?"
+                    Do not add any other text.
+                    
+                    """ },
                     new { role = "user", content = prompt }
                 },
                 temperature = _settings.Temperature,
                 max_tokens = _settings.MaxTokens,
-                stream = false
+                stream = false,
+                model = _settings.LLMModel,
             };
 
             string jsonContent = JsonConvert.SerializeObject(request);
@@ -41,10 +58,6 @@ namespace RAGDocument.Infrastructure.Services
 
             try
             {
-                //Console.WriteLine("\n[DEBUG] Sending request to LM Studio...");
-                //Console.WriteLine($"[DEBUG] Endpoint: /v1/chat/completions");
-                //Console.WriteLine($"[DEBUG] Request: {jsonContent.Substring(0, Math.Min(200, jsonContent.Length))}...");
-
                 var response = await _httpClient.PostAsync("/v1/chat/completions", content);
 
                 string responseBody = await response.Content.ReadAsStringAsync();
