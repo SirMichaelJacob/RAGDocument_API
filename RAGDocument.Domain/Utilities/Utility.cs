@@ -63,5 +63,16 @@ namespace RAGDocument.Application.Utilities
                 vector[i] /= norm;
             return vector;
         }
+
+        // Truncate text to approximately `maxTokens` words
+        public static string TruncateText(string text, int maxWords = 200)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return text;
+
+            var words = text.Split(new[] { ' ', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length <= maxWords) return text;
+
+            return string.Join(' ', words.Take(maxWords)) + "...";
+        }
     }
 }

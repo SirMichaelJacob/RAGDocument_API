@@ -37,6 +37,11 @@ namespace RAGDocument.Infrastructure.Services
 
         public async Task<string> QueryAsync(string question, CancellationToken ct = default)
         {
+            int maxPromptTokens = _settings.MaxTokens; // 2048
+            int reservedForAnswer = 500;
+            int maxContextTokens = maxPromptTokens - reservedForAnswer;
+            int maxContextWords = (int)(maxContextTokens / 1.3); // rough word count
+
             string cacheKey = $"answer:{question.ToLower().Trim()}";
 
             if (_cache.TryGetValue(cacheKey, out string cachedAnswer))
@@ -50,10 +55,17 @@ namespace RAGDocument.Infrastructure.Services
             {
                 return "I couldn't find any relevant information to answer your question.";
             }
+            int wordsPerDoc = maxContextWords / relevantDocs.Count;
+            var truncatedDocs = relevantDocs
+                .Select(d => Utility.TruncateText(d, wordsPerDoc))
+                .ToList();
 
-            string context = string.Join("\n\n", relevantDocs.Select((doc, i) => $"Document {i + 1}: {doc}"));
+            string context = string.Join("\n\n", truncatedDocs.Select((doc, i) => $"Document {i + 1}: {doc}"));
 
-            string prompt = $@"Based on the following information, please answer the question. Context:{context} Question: {question} Answer:";
+            string prompt = $@"Based on the following information, please answer the question. 
+                Context:{context} 
+                Question: {question} 
+                Answer:";
 
             string answer = await _llmClient.GenerateAsync(prompt);
 
